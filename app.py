@@ -18,22 +18,8 @@ server = app.server
 
 
 def load_and_process_data():
-    file_id = "10tNTYnEZetqp3D1BTQpkpRiZKal1tJpW"
-    url = f"https://drive.google.com/uc?id={file_id}&export=download"
+    output = "data/worldbank_data_cleaned.csv"
 
-    # Output file name
-    output = "worldbank_data.csv"
-
-    # Use gdown to download the file
-    gdown.download(url, output, quiet=False, fuzzy=True)
-
-    # Verify the file content
-    with open(output, 'r') as f:
-        content = f.read()
-        if not content.strip():
-            raise ValueError("Downloaded file is empty or invalid.")
-
-    # Load the file into pandas DataFrame
     df = pd.read_csv(output, low_memory=False)
     # Filter for the specific indicator and total population
     df_filtered = df[
