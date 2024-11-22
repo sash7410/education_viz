@@ -1,4 +1,5 @@
 import dash
+import requests
 from dash import dcc, html
 from dash.dependencies import Input, Output, State, ALL
 import plotly.express as px
@@ -7,6 +8,9 @@ import numpy as np
 from dash import callback_context
 from dash.exceptions import PreventUpdate
 from dash import no_update
+import io
+import gdown
+
 
 # Initialize Dash app
 app = dash.Dash(__name__)
@@ -14,9 +18,23 @@ server = app.server
 
 
 def load_and_process_data():
-    # Load data with correct settings
-    df = pd.read_csv('data/worldbank_data.csv', low_memory=False)
+    file_id = "10tNTYnEZetqp3D1BTQpkpRiZKal1tJpW"
+    url = f"https://drive.google.com/uc?id={file_id}&export=download"
 
+    # Output file name
+    output = "worldbank_data.csv"
+
+    # Use gdown to download the file
+    gdown.download(url, output, quiet=False, fuzzy=True)
+
+    # Verify the file content
+    with open(output, 'r') as f:
+        content = f.read()
+        if not content.strip():
+            raise ValueError("Downloaded file is empty or invalid.")
+
+    # Load the file into pandas DataFrame
+    df = pd.read_csv(output, low_memory=False)
     # Filter for the specific indicator and total population
     df_filtered = df[
         (df['INDICATOR'] == 'HD.HCI.AMRT') &
