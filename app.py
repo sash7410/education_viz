@@ -1,18 +1,10 @@
 import dash
-import requests
 from dash import dcc, html
 from dash.dependencies import Input, Output, State, ALL
 import plotly.express as px
 import pandas as pd
-import numpy as np
 from dash import callback_context
-from dash.exceptions import PreventUpdate
-from dash import no_update
-import io
-import gdown
 
-
-# Initialize Dash app
 app = dash.Dash(__name__)
 server = app.server
 
@@ -21,18 +13,15 @@ def load_and_process_data():
     output = "data/worldbank_data_cleaned.csv"
 
     df = pd.read_csv(output, low_memory=False)
-    # Filter for the specific indicator and total population
     df_filtered = df[
         (df['INDICATOR'] == 'HD.HCI.AMRT') &
         (df['SEX'] == '_T')
         ]
 
-    # Select relevant columns
     year_cols = [f'YR{year}' for year in range(2015, 2022)]
     cols_to_keep = ['Country name', 'economy'] + year_cols
     df_filtered = df_filtered[cols_to_keep]
 
-    # Convert to long format
     df_long = pd.melt(
         df_filtered,
         id_vars=['Country name', 'economy'],
@@ -41,29 +30,22 @@ def load_and_process_data():
         value_name='Survival_Rate'
     )
 
-    # Clean up year format and convert to numeric
     df_long['Year'] = df_long['Year'].str.replace('YR', '').astype(int)
     df_long['Survival_Rate'] = pd.to_numeric(df_long['Survival_Rate'], errors='coerce')
 
-    # First, identify countries that have at least one valid data point
     valid_countries = df_long.groupby('Country name')['Survival_Rate'].apply(
         lambda x: x.notna().any()
     )
     valid_countries = valid_countries[valid_countries].index
 
-    # Filter for valid countries
     df_long = df_long[df_long['Country name'].isin(valid_countries)]
 
-    # Handle missing values within each country group
     df_long = df_long.sort_values(['Country name', 'Year'])
     df_long['Survival_Rate'] = df_long.groupby('Country name')['Survival_Rate'].transform(
         lambda x: x.ffill().bfill()
     )
 
     return df_long
-
-
-# Load the processed data
 try:
     df_processed = load_and_process_data()
     print("\nProcessed data summary:")
@@ -110,7 +92,6 @@ narrative_steps = [
     }
 ]
 app.layout = html.Div([
-    # Header Section
     html.Div([
         html.H1("Education's Impact on Global Survival Rates (2015-2021)",
                 className='header-title'),
@@ -126,8 +107,6 @@ app.layout = html.Div([
         ], className='narrative-controls'),
     ], className='header-section'),
 
-    # Narrative Panel
-    # Update the Narrative Panel section in the layout
     html.Div([
         html.H2(narrative_steps[0]['title'], id='narrative-title', className='narrative-title'),
         html.P(narrative_steps[0]['content'], id='narrative-content', className='narrative-text'),
@@ -139,7 +118,6 @@ app.layout = html.Div([
             ) for i in range(len(narrative_steps))
         ], className='step-indicators')
     ], className='narrative-panel'),
-    # Key Metrics
     html.Div([
         html.Div([
             html.H3("Education Impact"),
@@ -158,7 +136,6 @@ app.layout = html.Div([
         ], className='metric-card'),
     ], className='metrics-container'),
 
-    # Visualization Tabs
     dcc.Tabs([
         dcc.Tab(label='Global Crisis Map', children=[
             html.Div([
@@ -200,7 +177,6 @@ app.layout = html.Div([
         ])
     ], id='tabs'),
 
-    # Call to Action
     html.Div([
         html.H2("Education Saves Lives: Take Action"),
         html.P([
@@ -239,7 +215,6 @@ app.layout = html.Div([
     ], className='action-section')
 ], className='container')
 
-# Consolidated metrics callback
 @app.callback(
     [Output('deaths-metric', 'children'),
      Output('gap-metric', 'children'),
@@ -286,7 +261,6 @@ def update_narrative(prev_clicks, next_clicks, start_clicks, current_title):
     ctx = callback_context
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0] if ctx.triggered else None
 
-    # Determine current step
     if trigger_id == 'start-tour' or not current_title:
         current_step = 0  # Reset to the first step for "Start Tour"
     else:
@@ -296,15 +270,12 @@ def update_narrative(prev_clicks, next_clicks, start_clicks, current_title):
                 if step['title'] == current_title
             )
         except StopIteration:
-            current_step = 0  # Default to the first step if not found
-
-    # Adjust step based on navigation
+            current_step = 0
     if trigger_id == 'next-step' and current_step < len(narrative_steps) - 1:
         current_step += 1
     elif trigger_id == 'prev-step' and current_step > 0:
         current_step -= 1
 
-    # Update outputs for the current step
     step = narrative_steps[current_step]
     indicators = [
         'step-indicator active' if i == current_step else 'step-indicator'
@@ -342,7 +313,6 @@ def update_map_insights(selected_year):
             "Educational access is a key predictor of survival rates"
         ], className="insight-highlight")
     ])
-# Map callback
 @app.callback(
     Output('world-map', 'figure'),
     [Input('year-slider', 'value')]
@@ -361,12 +331,12 @@ def update_map(selected_year):
         custom_data=['Survival_Rate'],
         title=f'Global Survival Rates ({selected_year})',
         color_continuous_scale=[
-            [0, 'rgb(189,0,38)'],  # dark red
-            [0.2, 'rgb(240,59,32)'],  # red
-            [0.4, 'rgb(253,141,60)'],  # orange
-            [0.6, 'rgb(254,204,92)'],  # yellow
-            [0.8, 'rgb(151,185,224)'],  # light blue
-            [1, 'rgb(49,130,189)']  # dark blue
+            [0, 'rgb(189,0,38)'],
+            [0.2, 'rgb(240,59,32)'],
+            [0.4, 'rgb(253,141,60)'],
+            [0.6, 'rgb(254,204,92)'],
+            [0.8, 'rgb(151,185,224)'],
+            [1, 'rgb(49,130,189)']
         ],
         range_color=[0.5, 1.0]
     )
@@ -406,8 +376,6 @@ def update_map(selected_year):
 
     return fig
 
-
-# Trend chart callback
 @app.callback(
     Output('trend-chart', 'figure'),
     [Input('country-selector', 'value')]
